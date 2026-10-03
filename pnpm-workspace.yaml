@@ -1,0 +1,8 @@
+allowBuilds:
+  bufferutil: false
+  esbuild: true
+  fsevents: set this to true or false
+  sharp: true
+  unrs-resolver: true
+  utf-8-validate: false
+  workerd: set this to true or false

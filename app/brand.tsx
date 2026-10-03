@@ -1,0 +1,1 @@
+export default function Brand(){return <span className="brand-logo"><img src="/brand-board.png" alt="RastroCoffee — grão de café com caminho de rastreabilidade"/></span>;}

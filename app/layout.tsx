@@ -1,0 +1,1 @@
+import type {Metadata} from "next";import "./globals.css";export const metadata:Metadata={title:"RastroCoffee | Rastreabilidade do café",description:"Origem, etapas e verificação de integridade de lotes de café.",icons:{icon:"/favicon.svg"}};export default function Layout({children}:{children:React.ReactNode}){return <html lang="pt-BR"><body>{children}</body></html>;}
