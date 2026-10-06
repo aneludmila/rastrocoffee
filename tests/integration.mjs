@@ -72,6 +72,7 @@ try{
  const reviewer=await login(users.reviewer.email);
  const lotId=await create('lot',{code:'LOTE-TESTE',propertyId:prop1,species:'Canéfora',variety:'VR25',harvest:'2026',quantity:30});
  const reviewerLot=await api('/api/records',reviewer,{kind:'lot',data:{code:'LOTE-ORIENTADOR',propertyId:prop1,species:'Canéfora',harvest:'2026',quantity:'12,5'}});assert.equal(reviewerLot.status,200);assert.equal(reviewerLot.data.data.quantity,12.5);assert.equal(rows.find(r=>r.id===reviewerLot.data.id).owner,adminId);
+ const removed=await api('/api/records',reviewer,{id:reviewerLot.data.id},'DELETE');assert.equal(removed.status,200);assert.ok(rows.find(r=>r.id===reviewerLot.data.id).data.deletedAt);const afterDelete=await (await request('/api/records',{headers:{Cookie:reviewer}})).json();assert.ok(!afterDelete.some(r=>r.id===reviewerLot.data.id));assert.equal((await api('/api/records',reviewer,{id:reviewerLot.data.id},'DELETE')).status,404);
  const invalidLot=await api('/api/records',reviewer,{kind:'lot',data:{code:'X',propertyId:prop1,species:' ',harvest:'26',quantity:'0'}});assert.equal(invalidLot.status,400);for(const key of ['code','species','harvest','quantity'])assert.ok(invalidLot.data.fieldErrors[key]);
  const shared=await (await request('/api/records',{headers:{Cookie:reviewer}})).json();assert.ok(shared.some(r=>r.id===lotId));
  const visible=await (await request('/api/records',{headers:{Cookie:producer}})).json();assert.ok(visible.some(r=>r.id===lotId));assert.ok(!visible.some(r=>r.id===p2||r.id===prop2||r.kind==='access'));
@@ -86,7 +87,7 @@ try{
  assert.equal((await api('/api/coffee',producer,{lotId,profile})).status,200);
  assert.equal((await api('/api/coffee',producer,{lotId:prop2,profile})).status,403);
  assert.equal((await api('/api/coffee',producer,{lotId,profile:{...profile,sourceDocumentId:p2}})).status,400);
- const generated=await api('/api/records',reviewer,{kind:'version',data:{lotId}});assert.equal(generated.status,200);const versionId=generated.data.id;assert.equal(rows.find(r=>r.id===versionId).owner,adminId);
+ const generated=await api('/api/records',reviewer,{kind:'version',data:{lotId}});assert.equal(generated.status,200);const versionId=generated.data.id;assert.equal((await api('/api/records',reviewer,{id:lotId},'DELETE')).status,409);assert.equal(rows.find(r=>r.id===versionId).owner,adminId);
  assert.deepEqual(rows.find(r=>r.id===versionId).data.snapshot.coffee,profile);
  await api('/api/coffee',producer,{lotId,profile:{...profile,score:80}});
  assert.equal(rows.find(r=>r.id===versionId).data.snapshot.coffee.score,86.25);

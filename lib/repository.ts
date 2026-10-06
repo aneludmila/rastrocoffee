@@ -20,7 +20,7 @@ export async function ownerRows(owner:string): Promise<Row[]> {
   // Supabase commonly caps one request to 1000 rows; paginate instead of silently truncating.
   for(let offset=0;;) {
     const page:Row[]=await (await backend("/rest/v1/records?"+query({owner:`eq.${owner}`,order:"created.asc,id.asc",limit:"500",offset:String(offset)}))).json();
-    rows.push(...page); if(!page.length) return rows; offset+=page.length;
+    rows.push(...page); if(!page.length){const deleted=new Set(rows.filter(r=>r.kind==="lot"&&r.data.deletedAt).map(r=>r.id));return rows.filter(r=>!deleted.has(r.id)&&!deleted.has(r.data.lotId));} offset+=page.length;
   }
 }
 export async function insertRecord(row:Row) {
@@ -60,4 +60,9 @@ export async function publications(owner:string) {
 export async function setPublication(versionId:string,owner:string,publish:boolean) {
  if(publish)await backend("/rest/v1/publications?on_conflict=version_id",{method:"POST",headers:{"Content-Type":"application/json",Prefer:"resolution=ignore-duplicates"},body:JSON.stringify({version_id:versionId,owner})});
  else await backend("/rest/v1/publications?"+query({version_id:`eq.${versionId}`,owner:`eq.${owner}`}),{method:"DELETE"});
+}
+
+// Logical deletion preserves attachments and audit data; anchored history is never deleted.
+export async function removeLot(id:string,owner:string,data:any){
+ await backend("/rest/v1/records?"+query({id:`eq.${id}`,owner:`eq.${owner}`,kind:"eq.lot"}),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data})});
 }
