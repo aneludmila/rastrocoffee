@@ -5,7 +5,7 @@ import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 const adminId=randomUUID(),producerId=randomUUID();
-const users={admin:{id:adminId,email:'admin@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{}},producer:{id:producerId,email:'producer@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{}}};
+const users={admin:{id:adminId,email:'admin@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{}},producer:{id:producerId,email:'producer@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{rastrocoffee_admin_owner:adminId}},reviewer:{id:randomUUID(),email:'reviewer@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{},app_metadata:{rastrocoffee_admin_owner:adminId}}};
 const rows=[],objects=new Map(),profiles=[],publications=[];let calls=0;
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data));}
 const mock=http.createServer(async(req,res)=>{
@@ -69,7 +69,9 @@ try{
  const p1=await create('producer',{name:'Produtor Um'}),p2=await create('producer',{name:'Produtor Dois'});
  const prop1=await create('property',{name:'Sítio Um',producerId:p1,city:'Ariquemes',state:'RO'}),prop2=await create('property',{name:'Sítio Dois',producerId:p2,city:'Ariquemes',state:'RO'});
  assert.equal((await api('/api/access',admin,{producerId:p1,email:users.producer.email})).status,200);
+ const reviewer=await login(users.reviewer.email);
  const lotId=await create('lot',{code:'LOTE-TESTE',propertyId:prop1,species:'Canéfora',variety:'VR25',harvest:'2026',quantity:30});
+ const shared=await (await request('/api/records',{headers:{Cookie:reviewer}})).json();assert.ok(shared.some(r=>r.id===lotId));
  const visible=await (await request('/api/records',{headers:{Cookie:producer}})).json();assert.ok(visible.some(r=>r.id===lotId));assert.ok(!visible.some(r=>r.id===p2||r.id===prop2||r.kind==='access'));
  assert.equal((await api('/api/records',producer,{kind:'lot',data:{propertyId:prop2}})).status,403);
  assert.equal((await api('/api/records',producer,{kind:'stage',data:{lotId,type:'Colheita',date:'2026-01-01',description:''}})).status,200);
@@ -82,7 +84,7 @@ try{
  assert.equal((await api('/api/coffee',producer,{lotId,profile})).status,200);
  assert.equal((await api('/api/coffee',producer,{lotId:prop2,profile})).status,403);
  assert.equal((await api('/api/coffee',producer,{lotId,profile:{...profile,sourceDocumentId:p2}})).status,400);
- const versionId=await create('version',{lotId});
+ const generated=await api('/api/records',reviewer,{kind:'version',data:{lotId}});assert.equal(generated.status,200);const versionId=generated.data.id;assert.equal(rows.find(r=>r.id===versionId).owner,adminId);
  assert.deepEqual(rows.find(r=>r.id===versionId).data.snapshot.coffee,profile);
  await api('/api/coffee',producer,{lotId,profile:{...profile,score:80}});
  assert.equal(rows.find(r=>r.id===versionId).data.snapshot.coffee.score,86.25);
