@@ -89,7 +89,7 @@ O servidor consulta a transação confirmada, confere os Memos da versão e de c
 - O campo de pontuação exige um laudo do próprio lote. A ficha é preenchida e revisada manualmente a partir do documento; este MVP não extrai PDFs automaticamente nem certifica a nota. Confira o identificador do lote no laudo.
 - A pontuação e as notas ficam dentro do snapshot e do hash da nova versão (formato 3). Alterar a ficha de trabalho não altera versões já geradas. Versões antigas de formato 2 continuam verificáveis.
 - As tabelas `records`, `coffee_profiles` e `publications` e o bucket privado não permitem leitura/gravação direta de anon/authenticated. As rotas do servidor validam papel e propriedade antes de usar a chave administrativa.
-- Os arquivos `netlify/edge-functions/*-limit.ts` definem limites por IP e domínio a cada 60 segundos: login 10, consultas 60 e gravações 30. São regras da plataforma, aplicadas após o deploy Netlify (não no servidor Next local). Podem levar até 10 segundos para bloquear excedentes com HTTP 429. Pessoas na mesma rede compartilham o limite; isso não é um teto global contra tráfego distribuído. Confira a seção Rate limiting do deploy para confirmar que as três regras foram aplicadas.
+- Os arquivos `netlify/edge-functions/*-limit.ts` definem limites por IP e domínio a cada 60 segundos: login 10 e todas as APIs 30 (consultas e gravações). São duas regras com um padrão de caminho cada, respeitando o limite do plano Free. São regras da plataforma, aplicadas após o deploy Netlify (não no servidor Next local). Podem levar até 10 segundos para bloquear excedentes com HTTP 429. Pessoas na mesma rede compartilham o limite; isso não é um teto global contra tráfego distribuído. Confira a seção Rate limiting do deploy para confirmar que as duas regras foram aplicadas.
 - Uma publicação exige versão confirmada, hash correspondente, PDFs íntegros e Memos válidos na Devnet. A decisão final é da administradora; produtores continuam criando apenas lotes próprios, etapas e fichas.
 
 ## Dados e limites
@@ -107,4 +107,3 @@ O servidor consulta a transação confirmada, confere os Memos da versão e de c
 - https://github.com/supabase/auth/blob/master/openapi.yaml
 - https://supabase.com/docs/guides/database/postgres/row-level-security
 - https://supabase.com/docs/guides/storage/security/access-control
-
