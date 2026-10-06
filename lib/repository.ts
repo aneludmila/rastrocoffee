@@ -42,3 +42,22 @@ export const storage={
   async delete(key:string) {await backend(objectPath(key),{method:"DELETE"});},
   async get(key:string):Promise<Response|null> {return backend(objectPath(key));}
 };
+
+export async function coffeeProfile(lotId:string,owner:string) {
+ const rows=await (await backend("/rest/v1/coffee_profiles?"+query({lot_id:`eq.${lotId}`,owner:`eq.${owner}`,limit:"1"}))).json();
+ return rows[0]?.data ?? null;
+}
+export async function saveCoffeeProfile(lotId:string,owner:string,data:unknown) {
+ await backend("/rest/v1/coffee_profiles?on_conflict=lot_id",{method:"POST",headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates"},body:JSON.stringify({lot_id:lotId,owner,data,updated_at:new Date().toISOString()})});
+}
+export async function publication(versionId:string,owner:string) {
+ const rows=await (await backend("/rest/v1/publications?"+query({version_id:`eq.${versionId}`,owner:`eq.${owner}`,limit:"1"}))).json();
+ return rows[0] ?? null;
+}
+export async function publications(owner:string) {
+ return (await backend("/rest/v1/publications?"+query({owner:`eq.${owner}`}))).json();
+}
+export async function setPublication(versionId:string,owner:string,publish:boolean) {
+ if(publish)await backend("/rest/v1/publications?on_conflict=version_id",{method:"POST",headers:{"Content-Type":"application/json",Prefer:"resolution=ignore-duplicates"},body:JSON.stringify({version_id:versionId,owner})});
+ else await backend("/rest/v1/publications?"+query({version_id:`eq.${versionId}`,owner:`eq.${owner}`}),{method:"DELETE"});
+}

@@ -6,7 +6,7 @@ import {spawn} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 const adminId=randomUUID(),producerId=randomUUID();
 const users={admin:{id:adminId,email:'admin@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{}},producer:{id:producerId,email:'producer@test.example',email_confirmed_at:new Date().toISOString(),user_metadata:{}}};
-const rows=[],objects=new Map();let calls=0;
+const rows=[],objects=new Map(),profiles=[],publications=[];let calls=0;
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data));}
 const mock=http.createServer(async(req,res)=>{
  try{
@@ -21,6 +21,13 @@ const mock=http.createServer(async(req,res)=>{
   return json(res,200,{});
  }
  assert.equal(req.headers.apikey,'test-service-secret');calls++;
+ if(['/rest/v1/coffee_profiles','/rest/v1/publications'].includes(url.pathname)){
+  const table=url.pathname.endsWith('coffee_profiles')?profiles:publications;
+  const matches=row=>[...url.searchParams].every(([k,v])=>['limit','on_conflict'].includes(k)||v.startsWith('eq.')&&String(row[k])===v.slice(3));
+  if(req.method==='GET')return json(res,200,table.filter(matches));
+  if(req.method==='POST'){const row=JSON.parse(body);const key=table===profiles?'lot_id':'version_id';const found=table.find(r=>r[key]===row[key]);if(found&&table===profiles)Object.assign(found,row);else if(!found)table.push({...row,published_at:new Date().toISOString()});return json(res,201,{});}
+  if(req.method==='DELETE'){for(let i=table.length-1;i>=0;i--)if(matches(table[i]))table.splice(i,1);return json(res,200,{});}
+ }
  if(url.pathname==='/rest/v1/records'){
   const matches=row=>[...url.searchParams].every(([key,value])=>{
    if(['limit','offset','order'].includes(key))return true;
@@ -71,12 +78,34 @@ try{
  const pdf=Buffer.from('%PDF-1.4\nLaudo de teste original');const form=new FormData();form.set('lotId',lotId);form.set('file',new Blob([pdf],{type:'application/pdf'}),'laudo.pdf');
  const uploaded=await request('/api/documents',{method:'POST',headers:{Cookie:producer},body:form});assert.equal(uploaded.status,200);const doc=await uploaded.json();assert.equal(doc.hash,createHash('sha256').update(pdf).digest('hex'));
  assert.equal((await request('/api/documents?id='+doc.id)).status,403);
+ const profile={reportLot:'1026',reportDate:'2026-08-31',variety:'VR25',score:86.25,method:'SCA',notes:['Abacaxi','Coco'],description:'Doce frutado',acidity:'Alta',body:'Aveludado',sweetness:'Doce',finish:'Longo',process:'Fermentado',altitude:180,story:'',brewing:'',sourceDocumentId:doc.id};
+ assert.equal((await api('/api/coffee',producer,{lotId,profile})).status,200);
+ assert.equal((await api('/api/coffee',producer,{lotId:prop2,profile})).status,403);
+ assert.equal((await api('/api/coffee',producer,{lotId,profile:{...profile,sourceDocumentId:p2}})).status,400);
  const versionId=await create('version',{lotId});
- let published=await (await request('/api/public?id='+versionId)).json();assert.equal(published.status,'pending');assert.equal(published.documents[0].status,'matched');
- const downloaded=await request(`/api/documents?id=${doc.id}&version=${versionId}`);assert.equal(downloaded.status,200);assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),pdf);
+ assert.deepEqual(rows.find(r=>r.id===versionId).data.snapshot.coffee,profile);
+ await api('/api/coffee',producer,{lotId,profile:{...profile,score:80}});
+ assert.equal(rows.find(r=>r.id===versionId).data.snapshot.coffee.score,86.25);
+ assert.equal((await request('/api/public?id='+versionId)).status,404);
+ assert.equal((await request('/api/public?id='+versionId+'&preview=1',{headers:{Cookie:producer}})).status,404);
+ assert.equal((await api('/api/publish',producer,{id:versionId,publish:true})).status,403);
+ assert.equal((await api('/api/publish',admin,{id:versionId,publish:true})).status,409);
+ assert.equal((await request(`/api/documents?id=${doc.id}&version=${versionId}`)).status,403);
+ const previewPath='/api/public?id='+versionId+'&preview=1';
+ let published=await (await request(previewPath,{headers:{Cookie:admin}})).json();assert.equal(published.preview,true);assert.equal(published.status,'pending');assert.equal(published.documents[0].status,'matched');
+ const downloaded=await request(`/api/documents?id=${doc.id}&version=${versionId}`,{headers:{Cookie:admin}});assert.equal(downloaded.status,200);assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),pdf);
  assert.equal((await request(`/api/documents?id=${doc.id}&version=${randomUUID()}`)).status,403);
  objects.set([...objects.keys()][0],Buffer.from('%PDF-1.4\nArquivo alterado'));
- published=await (await request('/api/public?id='+versionId)).json();assert.equal(published.status,'mismatch');assert.equal(published.documents[0].status,'mismatch');
+ published=await (await request(previewPath,{headers:{Cookie:admin}})).json();assert.equal(published.status,'mismatch');assert.equal(published.documents[0].status,'mismatch');
+ const v=rows.find(r=>r.id===versionId);v.data.signature='1'.repeat(88);v.data.confirmedAt=1791300000;
+ assert.equal((await api('/api/publish',admin,{id:versionId,publish:true})).status,400); // altered PDF prevents publication before RPC
+ v.data.signature=null;delete v.data.confirmedAt;
+ // Simulate the publication table's read gate without sending a real Devnet transaction.
+ publications.push({version_id:versionId,owner:adminId,published_at:new Date().toISOString()});
+ assert.equal((await request('/api/public?id='+versionId)).status,200);
+ assert.equal((await request(`/api/documents?id=${doc.id}&version=${versionId}`)).status,200);
+ assert.equal((await api('/api/publish',admin,{id:versionId,publish:false})).status,200);
+ assert.equal((await request('/api/public?id='+versionId)).status,404);
  const refreshed=await request('/api/records',{headers:{Cookie:'rc-access=expired; rc-refresh=refresh-admin'}});assert.equal(refreshed.status,200);assert.ok(refreshed.headers.getSetCookie().some(s=>s.startsWith('rc-access=admin')));
  const grant=rows.find(r=>r.kind==='access');assert.equal((await api('/api/access',admin,{id:grant.id},'DELETE')).status,200);
  assert.equal((await request('/api/records',{headers:{Cookie:producer}})).status,403);
