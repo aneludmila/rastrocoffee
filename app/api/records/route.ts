@@ -19,7 +19,6 @@ export async function DELETE(req:Request){
  if(!parsed.success)return Response.json({error:"Identificação do lote inválida."},{status:400});
  const rows=await visibleRows(a),lot=rows.find(r=>r.kind==="lot"&&r.id===parsed.data.id);
  if(!lot)return Response.json({error:"Lote não encontrado."},{status:404});
- if(rows.some(r=>r.kind==="version"&&r.data.lotId===lot.id))return Response.json({error:"Este lote possui versões. Preserve o histórico; para ocultar do consumidor, retire a publicação da versão."},{status:409});
  await removeLot(lot.id,a.owner!,{...lot.data,deletedAt:new Date().toISOString(),deletedBy:a.user.userId});
  return Response.json({ok:true});
  }catch{return Response.json({error:"Não foi possível excluir o lote. Tente novamente."},{status:503});}

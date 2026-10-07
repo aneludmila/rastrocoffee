@@ -64,5 +64,6 @@ export async function setPublication(versionId:string,owner:string,publish:boole
 
 // Logical deletion preserves attachments and audit data; anchored history is never deleted.
 export async function removeLot(id:string,owner:string,data:any){
- await backend("/rest/v1/records?"+query({id:`eq.${id}`,owner:`eq.${owner}`,kind:"eq.lot"}),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data})});
+ const rows=await (await backend("/rest/v1/records?"+query({id:`eq.${id}`,owner:`eq.${owner}`,kind:"eq.lot"}),{method:"PATCH",headers:{"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify({data})})).json();
+ if(!rows.length)throw new Error("Lote não encontrado para exclusão.");
 }
