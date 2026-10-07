@@ -12,3 +12,12 @@ test('PDF não pode ser baixado anonimamente mesmo pelo link de uma versão publ
  const res=await run(async(id,kind)=>kind==='document'?{owner:'owner',data:{name:'report.pdf',key:'key'}}:{data:{snapshot:{documents:[{id:'doc'}]}}},async()=>null,async()=>[],{get:async()=>{storageReads++;}});
  assert.equal(res.status,403);assert.equal(storageReads,0);
 });
+
+for(const valid of [true,false])test(`consulta pública ${valid?'extrai avaliação de PDF íntegro':'não analisa PDF adulterado'}`,async()=>{
+ const source=fs.readFileSync('app/api/public/route.ts','utf8').replace(/^import .*;\n/gm,'');
+ const js=ts.transpileModule(source.replace('export async','async'),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+ let reads=0;const snapshot={lot:{id:'lot'},documents:[{id:'doc',hash:'expected'}]};
+ const run=new Function('access','findRecord','storage','publication','digest','fileDigest','checkTransaction','analyzePdf',js+';return GET(new Request("https://example.com/api/public?id=version"));');
+ const res=await run(async()=>null,async(id)=>id==='version'?{id:'version',owner:'owner',data:{snapshot,hash:'snapshot',signature:'sig'}}:{data:{key:'key'}},{get:async()=>new Response('pdf')},async()=>({published_at:'today'}),async()=> 'snapshot',async()=>valid?'expected':'changed',async()=>({match:true}),async()=>{reads++;return {score:86.25,notes:['Coco'],description:'Descrição'};});
+ const d=await res.json();assert.equal(res.status,200);assert.equal(reads,valid?1:0);assert.equal(d.snapshot.coffee,undefined);assert.equal(d.reportAnalysis?.score,valid?86.25:undefined);assert.equal(d.status,valid?'verified':'mismatch');
+});
