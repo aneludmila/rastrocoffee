@@ -36,3 +36,9 @@ test('PDF original e snapshot detectam mudanças de bytes e dados',async()=>{
  assert.equal(await hash.digest({a:1,b:2}),await hash.digest({b:2,a:1}));
  assert.notEqual(await hash.digest({lot:{quantity:10}}),await hash.digest({lot:{quantity:11}}));
 });
+test('produtor recebe links somente das suas versões publicadas, sem dados técnicos',()=>{
+ const rows=[{id:'s1',kind:'property',data:{producerId:'p1'}},{id:'s2',kind:'property',data:{producerId:'p2'}},{id:'l1',kind:'lot',data:{propertyId:'s1'}},{id:'l2',kind:'lot',data:{propertyId:'s2'}},{id:'v1',kind:'version',publishedAt:'2026-10-07',data:{lotId:'l1',number:1,hash:'secret',snapshot:{private:true},wallet:'wallet'}},{id:'draft',kind:'version',data:{lotId:'l1',number:2}},{id:'other',kind:'version',publishedAt:'2026-10-07',data:{lotId:'l2',number:1}}];
+ const visible=policy.producerPublications(rows,'p1');
+ assert.deepEqual(visible,[{id:'v1',kind:'publication',created:undefined,data:{lotId:'l1',number:1}}]);
+ assert.deepEqual(policy.producerPublications(rows,'unknown'),[]);
+});
