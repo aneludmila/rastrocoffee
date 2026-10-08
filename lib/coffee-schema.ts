@@ -1,0 +1,4 @@
+import {z} from "zod";
+const text=z.string().trim().max(2000).default("");
+export const coffeeSchema=z.object({reportLot:z.string().trim().max(80).default(""),reportDate:z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/).default(""),variety:z.string().trim().max(80).default(""),score:z.number().min(0).max(100).nullable(),method:z.string().trim().max(80).default(""),notes:z.array(z.string().trim().min(1).max(60)).max(15),description:text,acidity:text,body:text,sweetness:text,finish:text,process:text,altitude:z.number().min(0).max(9000).nullable(),story:text,brewing:text,sourceDocumentId:z.string().uuid().nullable()});
+export const emptyCoffee={reportLot:"",reportDate:"",variety:"",score:null,method:"",notes:[],description:"",acidity:"",body:"",sweetness:"",finish:"",process:"",altitude:null,story:"",brewing:"",sourceDocumentId:null};

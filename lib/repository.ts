@@ -67,3 +67,11 @@ export async function removeLot(id:string,owner:string,data:any){
  const rows=await (await backend("/rest/v1/records?"+query({id:`eq.${id}`,owner:`eq.${owner}`,kind:"eq.lot"}),{method:"PATCH",headers:{"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify({data})})).json();
  if(!rows.length)throw new Error("Lote não encontrado para exclusão.");
 }
+
+export async function lotStages(lotId:string,owner:string){
+ const lot=await findRecord(lotId,"lot",owner);if(!lot||lot.data.deletedAt)return [];
+ const stages:any[]=[];
+ for(let offset=0;;){const page:Row[]=await (await backend("/rest/v1/records?"+query({owner:`eq.${owner}`,kind:"eq.stage","data->>lotId":`eq.${lotId}`,order:"created.asc,id.asc",limit:"500",offset:String(offset)}))).json();
+ stages.push(...page.map(r=>({id:r.id,type:r.data.type,date:r.data.date,description:r.data.description||""})));if(!page.length)break;offset+=page.length;}
+ return stages.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+}
